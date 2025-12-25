@@ -83,47 +83,50 @@ async def _process_report_async(report_id_str: str, file_path: str) -> dict:
 
         pdf_document = pdf_parser.parse_file(Path(file_path))
 
-        # Step 1.5: Analyze tables and add analysis to document
-        if pdf_document.tables:
-            await update_report_status(report_id, "analyzing_tables")
-            logger.info(f"Analyzing {len(pdf_document.tables)} tables found in document")
-            table_analysis_service = TableAnalysisService()
-
-            # Analyze each table and add analysis text to document
-            enhanced_pages = []
-            for page in pdf_document.pages:
-                page_text = page.text
-                if page.tables:
-                    for table in page.tables:
-                        try:
-                            # Analyze table
-                            analysis_result = await table_analysis_service.analyze_table(table)
-
-                            # Format analysis as text to add after table
-                            analysis_text = _format_table_analysis(table, analysis_result)
-
-                            # Find table position in page text and add analysis
-                            # For now, append analysis at the end of page text
-                            page_text += f"\n\n[표 분석 - 페이지 {table.page_number}, 표 {table.table_index + 1}]\n{analysis_text}"
-                        except Exception as e:
-                            logger.warning(f"Failed to analyze table on page {table.page_number}: {e}")
-
-                # Update page with enhanced text
-                from app.parsers.pdf_parser import PDFPage
-                enhanced_pages.append(
-                    PDFPage(
-                        page_number=page.page_number,
-                        text=page_text,
-                        width=page.width,
-                        height=page.height,
-                        has_images=page.has_images,
-                        tables=page.tables,
-                    )
-                )
-
-            # Update document with enhanced pages
-            pdf_document.pages = enhanced_pages
-            pdf_document.full_text = "\n\n".join(page.text for page in enhanced_pages)
+        # Step 1.5: Analyze tables (disabled for now due to API rate limit)
+        # Table analysis adds too many API calls with Gemini free tier (10 RPM limit)
+        # Each table = 1 API call. With 9-13 tables per document, this exceeds quota quickly
+        # Re-enable when: 1) using higher tier API, or 2) implement async batching with delays
+        # if pdf_document.tables:
+        #     await update_report_status(report_id, "analyzing_tables")
+        #     logger.info(f"Analyzing {len(pdf_document.tables)} tables found in document")
+        #     table_analysis_service = TableAnalysisService()
+        #
+        #     # Analyze each table and add analysis text to document
+        #     enhanced_pages = []
+        #     for page in pdf_document.pages:
+        #         page_text = page.text
+        #         if page.tables:
+        #             for table in page.tables:
+        #                 try:
+        #                     # Analyze table
+        #                     analysis_result = await table_analysis_service.analyze_table(table)
+        #
+        #                     # Format analysis as text to add after table
+        #                     analysis_text = _format_table_analysis(table, analysis_result)
+        #
+        #                     # Find table position in page text and add analysis
+        #                     # For now, append analysis at the end of page text
+        #                     page_text += f"\n\n[표 분석 - 페이지 {table.page_number}, 표 {table.table_index + 1}]\n{analysis_text}"
+        #                 except Exception as e:
+        #                     logger.warning(f"Failed to analyze table on page {table.page_number}: {e}")
+        #
+        #         # Update page with enhanced text
+        #         from app.parsers.pdf_parser import PDFPage
+        #         enhanced_pages.append(
+        #             PDFPage(
+        #                 page_number=page.page_number,
+        #                 text=page_text,
+        #                 width=page.width,
+        #                 height=page.height,
+        #                 has_images=page.has_images,
+        #                 tables=page.tables,
+        #             )
+        #         )
+        #
+        #     # Update document with enhanced pages
+        #     pdf_document.pages = enhanced_pages
+        #     pdf_document.full_text = "\n\n".join(page.text for page in enhanced_pages)
 
         # Step 2: Extract entities
         await update_report_status(report_id, "extracting_entities")
