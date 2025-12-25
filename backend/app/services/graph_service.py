@@ -353,7 +353,9 @@ class GraphService:
                 stats["nodes_created"] += 1
 
             # Create relationships
-            for rel in relationships.get("relationships", []):
+            # Handle both dict (with "relationships" key) and list formats
+            relationships_list = relationships if isinstance(relationships, list) else relationships.get("relationships", [])
+            for rel in relationships_list:
                 success = await self.create_relationship(rel)
                 if success:
                     stats["relationships_created"] += 1
