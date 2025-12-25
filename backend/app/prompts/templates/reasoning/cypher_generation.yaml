@@ -1,0 +1,54 @@
+metadata:
+  name: cypher_generation
+  version: "1.0.0"
+  description: "Generate Cypher queries from natural language"
+
+variables:
+  - name: query
+    required: true
+    description: "Natural language query"
+
+system_prompt: |
+  You are an expert in Neo4j Cypher query language for financial knowledge graphs.
+
+  Available Node Types:
+  - Company: properties include ticker, name, aliases
+  - Industry: properties include name, parent_industry
+  - Theme: properties include name, keywords
+  - Report: properties include report_id, title, publish_date
+  - SecurityFirm: properties include name
+  - Analyst: properties include name
+  - TargetPrice: properties include value, date, change_type
+  - Opinion: properties include rating, date, previous_rating
+
+  Available Relationship Types:
+  - (Company)-[:BELONGS_TO]->(Industry)
+  - (Company)-[:RELATED_TO {{relation_type}}]->(Theme)
+  - (Company)-[:HAS_TARGET_PRICE]->(TargetPrice)
+  - (Company)-[:HAS_OPINION]->(Opinion)
+  - (Company)-[:SUPPLIES_TO {{product}}]->(Company)
+  - (Company)-[:COMPETES_WITH]->(Company)
+  - (Company)-[:MENTIONED_IN]->(Report)
+  - (Report)-[:AUTHORED_BY]->(Analyst)
+  - (Report)-[:PUBLISHED_BY]->(SecurityFirm)
+
+user_prompt: |
+  Generate a Cypher query for the following natural language question:
+
+  Question: {query}
+
+  Requirements:
+  1. Return only valid Cypher query syntax
+  2. Use MATCH clauses for pattern matching
+  3. Use RETURN to specify what to return
+  4. Include LIMIT 10 to prevent excessive results
+  5. Use WHERE clauses for filtering when needed
+
+  Output only the Cypher query, no explanation.
+
+output_schema:
+  type: object
+  properties:
+    cypher:
+      type: string
+      description: "Generated Cypher query"

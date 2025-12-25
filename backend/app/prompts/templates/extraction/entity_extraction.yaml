@@ -1,0 +1,193 @@
+metadata:
+  name: entity_extraction
+  version: "1.0.0"
+  description: "Extract financial entities from stock reports"
+
+variables:
+  - name: text
+    required: true
+    description: "Text content to extract entities from"
+  - name: report_type
+    default: "stock_analysis"
+    description: "Type of report (stock_analysis, industry, macro)"
+
+system_prompt: |
+  You are an expert financial analyst specializing in extracting structured information from stock research reports.
+
+  Your task is to identify and extract the following entity types from financial documents:
+
+  1. **Company**: Company names, stock tickers, and aliases
+  2. **Industry**: Industry sectors and sub-sectors
+  3. **Theme**: Investment themes, trends, and market catalysts
+  4. **TargetPrice**: Price targets with values and dates
+  5. **Opinion**: Investment ratings and recommendations
+  6. **SecurityFirm**: Securities firms and research institutions
+  7. **Analyst**: Analyst names and credentials
+
+  Extract entities with high precision and include all relevant attributes.
+  Normalize company names to their official names and stock tickers.
+
+  For Korean reports, extract both Korean and English names when available.
+
+user_prompt: |
+  Extract financial entities from the following text.
+
+  Report Type: {report_type}
+
+  Text:
+  ---
+  {text}
+  ---
+
+  Extract all relevant entities with their properties. Be thorough and precise.
+
+output_schema:
+  type: object
+  required:
+    - companies
+    - entities_found
+  properties:
+    companies:
+      type: array
+      description: "List of company entities"
+      items:
+        type: object
+        required:
+          - name
+          - ticker
+        properties:
+          name:
+            type: string
+            description: "Official company name"
+          ticker:
+            type: string
+            description: "Stock ticker symbol"
+          aliases:
+            type: array
+            items:
+              type: string
+            description: "Alternative names and abbreviations"
+          industry:
+            type: string
+            description: "Primary industry sector"
+          market:
+            type: string
+            description: "Stock market (e.g., KOSPI, KOSDAQ, NYSE)"
+
+    industries:
+      type: array
+      description: "List of industry/sector entities"
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          parent_industry:
+            type: string
+            description: "Parent sector if applicable"
+
+    themes:
+      type: array
+      description: "Investment themes and trends"
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          keywords:
+            type: array
+            items:
+              type: string
+          description:
+            type: string
+
+    target_prices:
+      type: array
+      description: "Price target information"
+      items:
+        type: object
+        required:
+          - company_ticker
+          - value
+        properties:
+          company_ticker:
+            type: string
+          value:
+            type: number
+            description: "Target price value"
+          currency:
+            type: string
+            default: "KRW"
+          date:
+            type: string
+            format: date
+            description: "Target date or report date"
+          change_type:
+            type: string
+            enum: ["maintain", "raise", "lower", "initiate"]
+          previous_value:
+            type: number
+
+    opinions:
+      type: array
+      description: "Investment opinions and ratings"
+      items:
+        type: object
+        required:
+          - company_ticker
+          - rating
+        properties:
+          company_ticker:
+            type: string
+          rating:
+            type: string
+            description: "Buy, Hold, Sell, etc."
+          date:
+            type: string
+            format: date
+          previous_rating:
+            type: string
+          change_type:
+            type: string
+            enum: ["maintain", "upgrade", "downgrade", "initiate"]
+
+    security_firms:
+      type: array
+      description: "Securities firms mentioned"
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+
+    analysts:
+      type: array
+      description: "Analyst information"
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          firm:
+            type: string
+          credentials:
+            type: string
+
+    entities_found:
+      type: object
+      description: "Count of entities found by type"
+      properties:
+        companies:
+          type: integer
+        industries:
+          type: integer
+        themes:
+          type: integer
+        target_prices:
+          type: integer
+        opinions:
+          type: integer
+        security_firms:
+          type: integer
+        analysts:
+          type: integer

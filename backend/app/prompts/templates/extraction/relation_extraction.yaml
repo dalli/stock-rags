@@ -1,0 +1,153 @@
+metadata:
+  name: relation_extraction
+  version: "1.0.0"
+  description: "Extract relationships between entities in stock reports"
+
+variables:
+  - name: text
+    required: true
+    description: "Text content to extract relations from"
+  - name: entities
+    required: true
+    description: "List of entities already extracted (JSON format)"
+  - name: report_type
+    default: "stock_analysis"
+    description: "Type of report"
+
+system_prompt: |
+  You are an expert financial analyst specializing in identifying relationships between entities in stock research reports.
+
+  Your task is to extract the following relationship types:
+
+  1. **BELONGS_TO**: Company belongs to Industry/Sector
+  2. **RELATED_TO**: Company related to Investment Theme
+  3. **HAS_TARGET_PRICE**: Company has price target
+  4. **HAS_OPINION**: Company has investment opinion/rating
+  5. **SUPPLIES_TO**: Company supplies products/services to another company
+  6. **COMPETES_WITH**: Companies in competitive relationship
+  7. **MENTIONED_IN**: Entity mentioned in Report
+  8. **AUTHORED_BY**: Report authored by Analyst
+  9. **PUBLISHED_BY**: Report published by Securities Firm
+
+  Extract relationships with confidence scores and supporting evidence.
+
+user_prompt: |
+  Extract relationships between the entities found in the following text.
+
+  Report Type: {report_type}
+
+  Known Entities:
+  {entities}
+
+  Text:
+  ---
+  {text}
+  ---
+
+  Identify all relationships between these entities. Include relationship properties and evidence.
+
+output_schema:
+  type: object
+  required:
+    - relationships
+    - relationships_found
+  properties:
+    relationships:
+      type: array
+      description: "List of relationships between entities"
+      items:
+        type: object
+        required:
+          - source
+          - target
+          - relation_type
+        properties:
+          source:
+            type: object
+            description: "Source entity"
+            required:
+              - entity_type
+              - identifier
+            properties:
+              entity_type:
+                type: string
+                description: "Type of entity (Company, Report, etc.)"
+              identifier:
+                type: string
+                description: "Unique identifier (ticker, name, id)"
+
+          target:
+            type: object
+            description: "Target entity"
+            required:
+              - entity_type
+              - identifier
+            properties:
+              entity_type:
+                type: string
+              identifier:
+                type: string
+
+          relation_type:
+            type: string
+            description: "Type of relationship"
+            enum:
+              - BELONGS_TO
+              - RELATED_TO
+              - HAS_TARGET_PRICE
+              - HAS_OPINION
+              - SUPPLIES_TO
+              - COMPETES_WITH
+              - MENTIONED_IN
+              - AUTHORED_BY
+              - PUBLISHED_BY
+
+          properties:
+            type: object
+            description: "Additional relationship properties"
+            properties:
+              product:
+                type: string
+                description: "For SUPPLIES_TO relationships"
+              relation_strength:
+                type: string
+                description: "direct, indirect, mentioned"
+              description:
+                type: string
+
+          confidence_score:
+            type: number
+            minimum: 0.0
+            maximum: 1.0
+            description: "Confidence in relationship extraction (0-1)"
+
+          evidence:
+            type: string
+            description: "Text snippet supporting this relationship"
+
+    relationships_found:
+      type: integer
+      description: "Total number of relationships found"
+
+    relationship_counts:
+      type: object
+      description: "Count of relationships by type"
+      properties:
+        BELONGS_TO:
+          type: integer
+        RELATED_TO:
+          type: integer
+        HAS_TARGET_PRICE:
+          type: integer
+        HAS_OPINION:
+          type: integer
+        SUPPLIES_TO:
+          type: integer
+        COMPETES_WITH:
+          type: integer
+        MENTIONED_IN:
+          type: integer
+        AUTHORED_BY:
+          type: integer
+        PUBLISHED_BY:
+          type: integer
