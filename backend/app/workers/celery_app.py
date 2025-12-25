@@ -24,6 +24,16 @@ app.conf.update(
     task_track_started=True,
     task_time_limit=30 * 60,  # 30 minutes
     task_soft_time_limit=25 * 60,  # 25 minutes
+    # Worker configuration for API rate limiting
+    worker_prefetch_multiplier=1,  # Prefetch only 1 task at a time
+    worker_max_tasks_per_child=10,  # Recycle worker after 10 tasks
+    # Task routing
+    task_default_queue="default",
+    task_routes={
+        "app.workers.tasks.process_report": {"queue": "reports"},
+    },
+    # Queue configuration for rate limiting
+    task_queue_max_priority=10,
 )
 
 # Auto-discover tasks

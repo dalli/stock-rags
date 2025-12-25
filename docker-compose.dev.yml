@@ -11,7 +11,7 @@ services:
   celery-worker:
     environment:
       LOG_LEVEL: DEBUG
-    command: celery -A app.workers.celery_app worker --loglevel=debug
+    command: celery -A app.workers.celery_app worker --loglevel=debug --concurrency=2 --queues=reports,default --max-tasks-per-child=10
 
   frontend:
     build:
