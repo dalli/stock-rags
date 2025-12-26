@@ -166,6 +166,43 @@ async def _process_report_async(report_id_str: str, file_path: str) -> dict:
             publish_date=pdf_document.metadata.creation_date,
         )
 
+        # ✨ Step 4.5: Generate visualization data
+        await update_report_status(report_id, "generating_visualization")
+        logger.info("Generating visualization data for graph")
+
+        try:
+            from app.services.graph_visualization_service import (
+                get_graph_visualization_service,
+            )
+            from app.db.postgres import AsyncSessionLocal
+
+            visualization_service = await get_graph_visualization_service()
+
+            async with AsyncSessionLocal() as db:
+                visualization_data = (
+                    await visualization_service.generate_visualization_data(
+                        report_id=report_id,
+                        entities=entities,
+                        db=db,
+                    )
+                )
+                # 시각화 데이터 생성 통계 추가
+                graph_stats["visualization_nodes"] = visualization_data["stats"][
+                    "node_count"
+                ]
+                graph_stats["visualization_relationships"] = visualization_data[
+                    "stats"
+                ]["relationship_count"]
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to generate visualization data: {e}",
+                exc_info=True,
+            )
+            # 계속 진행 - visualization은 선택사항
+            graph_stats["visualization_nodes"] = 0
+            graph_stats["visualization_relationships"] = 0
+
         # Step 5: Store vector embeddings
         await update_report_status(report_id, "storing_embeddings")
         logger.info("Generating and storing embeddings")
@@ -200,6 +237,10 @@ async def _process_report_async(report_id_str: str, file_path: str) -> dict:
             "entities_found": entities.get("entities_found", {}),
             "graph_nodes": graph_stats["nodes_created"],
             "graph_relationships": graph_stats["relationships_created"],
+            "visualization_nodes": graph_stats.get("visualization_nodes", 0),
+            "visualization_relationships": graph_stats.get(
+                "visualization_relationships", 0
+            ),
             "vector_chunks": chunks_stored,
         }
 

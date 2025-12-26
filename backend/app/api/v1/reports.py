@@ -83,6 +83,37 @@ class VectorInfoResponse(BaseModel):
     chunks: List[dict]
 
 
+class GraphNodeInfo(BaseModel):
+    """그래프 노드 정보"""
+
+    id: str
+    label: str
+    type: str
+    properties: dict = {}
+
+
+class GraphRelationshipInfo(BaseModel):
+    """그래프 관계 정보"""
+
+    source_id: str
+    source_type: str
+    source_label: str
+    target_id: str
+    target_type: str
+    target_label: str
+    relationship_type: str
+    properties: dict = {}
+
+
+class GraphVisualizationResponse(BaseModel):
+    """그래프 시각화용 응답"""
+
+    report_id: str
+    nodes: List[GraphNodeInfo]
+    relationships: List[GraphRelationshipInfo]
+    stats: dict
+
+
 @router.post("/upload", response_model=ReportResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_report(
     file: UploadFile = File(...),
@@ -651,4 +682,110 @@ async def get_report_vectors(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get vector info: {str(e)}",
+        )
+
+
+@router.get("/{report_id}/graph/relationships", response_model=GraphVisualizationResponse)
+async def get_report_graph_relationships(
+    report_id: UUID,
+    limit: int = 500,
+    db: AsyncSession = Depends(get_db),
+) -> GraphVisualizationResponse:
+    """
+    Get graph visualization data for a report.
+
+    Returns nodes and relationships for interactive graph visualization.
+
+    Args:
+        report_id: Report UUID
+        limit: Maximum number of relationships to return (default: 500)
+        db: Database session
+
+    Returns:
+        GraphVisualizationResponse with nodes, relationships, and statistics
+    """
+    stmt = select(Report).where(Report.id == report_id)
+    result = await db.execute(stmt)
+    report = result.scalar_one_or_none()
+
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found",
+        )
+
+    try:
+        from app.services.graph_visualization_service import (
+            get_graph_visualization_service,
+        )
+
+        visualization_service = await get_graph_visualization_service()
+
+        # Extract entities from report for graph querying
+        from app.db.postgres import Entity
+
+        entity_stmt = select(Entity).where(Entity.report_id == report_id)
+        entity_result = await db.execute(entity_stmt)
+        entities_db = entity_result.scalars().all()
+
+        # Prepare entities dict from database
+        entities = {
+            "companies": [],
+            "industries": [],
+            "themes": [],
+        }
+
+        for entity in entities_db:
+            if entity.entity_type == "Company":
+                entities["companies"].append(
+                    {
+                        "name": entity.name,
+                        "ticker": entity.properties.get("ticker") if entity.properties else None,
+                        "industry": entity.properties.get("industry") if entity.properties else None,
+                        "market": entity.properties.get("market") if entity.properties else None,
+                    }
+                )
+            elif entity.entity_type == "Industry":
+                entities["industries"].append(
+                    {
+                        "name": entity.name,
+                        "parent_industry": entity.properties.get("parent_industry")
+                        if entity.properties
+                        else None,
+                    }
+                )
+            elif entity.entity_type == "Theme":
+                entities["themes"].append(
+                    {
+                        "name": entity.name,
+                        "keywords": entity.properties.get("keywords", [])
+                        if entity.properties
+                        else [],
+                        "description": entity.properties.get("description")
+                        if entity.properties
+                        else None,
+                    }
+                )
+
+        # Generate visualization data
+        visualization_data = await visualization_service.generate_visualization_data(
+            report_id=report_id,
+            entities=entities,
+            db=None,  # Don't save again - already saved during processing
+        )
+
+        return GraphVisualizationResponse(
+            report_id=str(report_id),
+            nodes=[GraphNodeInfo(**node) for node in visualization_data["nodes"]],
+            relationships=[
+                GraphRelationshipInfo(**rel) for rel in visualization_data["relationships"]
+            ],
+            stats=visualization_data["stats"],
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to get graph relationships: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get graph relationships: {str(e)}",
         )

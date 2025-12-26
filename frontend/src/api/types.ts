@@ -61,15 +61,10 @@ export interface Source {
   content: string
 }
 
-export interface GraphData {
-  nodes: GraphNode[]
-  links: GraphLink[]
-}
-
 export interface GraphNode {
   id: string
   label: string
-  type: string
+  type: 'Company' | 'Industry' | 'Theme' | 'TargetPrice' | 'Opinion'
   properties?: Record<string, unknown>
 }
 
@@ -78,6 +73,11 @@ export interface GraphLink {
   target: string
   label: string
   properties?: Record<string, unknown>
+}
+
+export interface GraphData {
+  nodes: GraphNode[]
+  links: GraphLink[]
 }
 
 export interface Conversation {
@@ -160,4 +160,27 @@ export interface VectorInfo {
     page_number?: number
     text_preview?: string
   }>
+}
+
+// Graph Visualization
+export interface GraphRelationship {
+  source_id: string
+  source_type: string
+  source_label: string
+  target_id: string
+  target_type: string
+  target_label: string
+  relationship_type: string
+  properties?: Record<string, unknown>
+}
+
+export interface GraphVisualizationResponse {
+  report_id: string
+  nodes: GraphNode[]
+  relationships: GraphRelationship[]
+  stats: {
+    node_count: number
+    relationship_count: number
+    node_types: Record<string, number>
+  }
 }

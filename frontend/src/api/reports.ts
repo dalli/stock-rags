@@ -1,5 +1,5 @@
 import client from './client'
-import { Report, ReportStatus, ReportsResponse } from './types'
+import { Report, ReportStatus, ReportsResponse, GraphVisualizationResponse } from './types'
 
 export const reportsApi = {
   uploadReport: async (file: File) => {
@@ -54,6 +54,16 @@ export const reportsApi = {
     const response = await client.get(`/reports/${reportId}/vectors`, {
       params: { limit },
     })
+    return response.data
+  },
+
+  getReportGraphVisualization: async (reportId: string, limit: number = 500) => {
+    const response = await client.get<GraphVisualizationResponse>(
+      `/reports/${reportId}/graph/relationships`,
+      {
+        params: { limit },
+      }
+    )
     return response.data
   },
 }

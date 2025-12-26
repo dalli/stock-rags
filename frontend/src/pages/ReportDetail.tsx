@@ -23,8 +23,9 @@ import IconButton from '@mui/material/IconButton'
 import { MainLayout } from '@/components/Layout/MainLayout'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
+import { GraphVisualization } from '@/components/GraphVisualization'
 import { reportsApi } from '@/api/reports'
-import { GraphInfo, VectorInfo } from '@/api/types'
+import { GraphInfo, VectorInfo, GraphVisualizationResponse } from '@/api/types'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -55,6 +56,8 @@ export const ReportDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [graphInfo, setGraphInfo] = useState<GraphInfo | null>(null)
+  const [graphVisualization, setGraphVisualization] = useState<GraphVisualizationResponse | null>(null)
+  const [visualizationLoading, setVisualizationLoading] = useState(false)
   const [vectorInfo, setVectorInfo] = useState<VectorInfo | null>(null)
   const [tabValue, setTabValue] = useState(0)
 
@@ -86,6 +89,17 @@ export const ReportDetailPage: React.FC = () => {
         setGraphInfo(graph)
       } catch (err) {
         console.error('Failed to load graph info:', err)
+      }
+
+      // Load graph visualization data
+      try {
+        setVisualizationLoading(true)
+        const visualization = await reportsApi.getReportGraphVisualization(reportId)
+        setGraphVisualization(visualization)
+      } catch (err) {
+        console.error('Failed to load graph visualization:', err)
+      } finally {
+        setVisualizationLoading(false)
       }
 
       // Load vector info
@@ -199,6 +213,20 @@ export const ReportDetailPage: React.FC = () => {
                       </Card>
                     </Grid>
                   </Grid>
+
+                  {/* Graph Visualization */}
+                  {graphVisualization && (
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="h6" gutterBottom>
+                        그래프 시각화
+                      </Typography>
+                      <GraphVisualization
+                        data={graphVisualization}
+                        loading={visualizationLoading}
+                        height="500px"
+                      />
+                    </Box>
+                  )}
 
                   {graphInfo.companies.length > 0 && (
                     <Box sx={{ mb: 3 }}>
