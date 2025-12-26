@@ -149,12 +149,12 @@ services:
       - stockrags-network
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-  # Celery Worker
-  celery-worker:
+  # Celery Worker - Orchestration (lightweight, fast)
+  celery-worker-orchestration:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: stockrags-celery-worker
+    container_name: stockrags-celery-orchestration
     environment:
       TZ: Asia/Seoul
       # Same environment variables as backend
@@ -188,7 +188,87 @@ services:
       - qdrant
     networks:
       - stockrags-network
-    command: celery -A app.workers.celery_app worker --loglevel=info
+    command: celery -A app.workers.celery_app worker --loglevel=info --queues=orchestration --concurrency=2 --max-tasks-per-child=50
+
+  # Celery Worker - I/O Bound (API calls, database, file operations)
+  celery-worker-io:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: stockrags-celery-io
+    environment:
+      TZ: Asia/Seoul
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-stockrags}
+      POSTGRES_USER: ${POSTGRES_USER:-stockrags}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stockrags2024}
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: ${NEO4J_USER:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-neo4j2024}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      LMSTUDIO_BASE_URL: ${LMSTUDIO_BASE_URL:-http://host.docker.internal:1234/v1}
+      DEFAULT_LMSTUDIO_MODEL: ${DEFAULT_LMSTUDIO_MODEL:-local-model}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+    volumes:
+      - ./backend:/app
+      - backend_uploads:/app/uploads
+    depends_on:
+      - redis
+      - postgres
+      - neo4j
+      - qdrant
+    networks:
+      - stockrags-network
+    command: celery -A app.workers.celery_app worker --loglevel=info --queues=io_bound --concurrency=4 --max-tasks-per-child=10
+
+  # Celery Worker - CPU Bound (graph building, calculations)
+  celery-worker-cpu:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: stockrags-celery-cpu
+    environment:
+      TZ: Asia/Seoul
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-stockrags}
+      POSTGRES_USER: ${POSTGRES_USER:-stockrags}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stockrags2024}
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: ${NEO4J_USER:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-neo4j2024}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      LMSTUDIO_BASE_URL: ${LMSTUDIO_BASE_URL:-http://host.docker.internal:1234/v1}
+      DEFAULT_LMSTUDIO_MODEL: ${DEFAULT_LMSTUDIO_MODEL:-local-model}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+    volumes:
+      - ./backend:/app
+      - backend_uploads:/app/uploads
+    depends_on:
+      - redis
+      - postgres
+      - neo4j
+      - qdrant
+    networks:
+      - stockrags-network
+    command: celery -A app.workers.celery_app worker --loglevel=info --queues=cpu_bound --concurrency=2 --max-tasks-per-child=20
 
   # Frontend React Application
   frontend:

@@ -27,13 +27,49 @@ app.conf.update(
     # Worker configuration for API rate limiting
     worker_prefetch_multiplier=1,  # Prefetch only 1 task at a time
     worker_max_tasks_per_child=10,  # Recycle worker after 10 tasks
-    # Task routing
+    # Task routing by workload type
     task_default_queue="default",
     task_routes={
-        "app.workers.tasks.process_report": {"queue": "reports"},
+        # Orchestration queue (lightweight, fast)
+        "process_report": {"queue": "orchestration"},
+
+        # I/O bound tasks (API calls, database, file operations)
+        "tasks.parse_pdf": {"queue": "io_bound"},
+        "tasks.extract_entities": {
+            "queue": "io_bound",
+            "rate_limit": "6/m",  # Gemini API: 10 RPM limit, use 6/m for safety
+        },
+        "tasks.extract_relationships": {
+            "queue": "io_bound",
+            "rate_limit": "6/m",  # Gemini API: 10 RPM limit
+        },
+        "tasks.store_vectors": {
+            "queue": "io_bound",
+            "rate_limit": "6/m",  # Gemini API: 10 RPM limit
+        },
+
+        # CPU bound tasks (graph building, calculations)
+        "tasks.build_graph": {"queue": "cpu_bound"},
+        "tasks.generate_visualization": {"queue": "cpu_bound"},
+        "tasks.finalize_report": {"queue": "cpu_bound"},
     },
     # Queue configuration for rate limiting
     task_queue_max_priority=10,
+    # Rate limiting settings
+    task_annotations={
+        "tasks.extract_entities": {
+            "rate_limit": "6/m",
+            "time_limit": 600,  # 10 minutes max
+        },
+        "tasks.extract_relationships": {
+            "rate_limit": "6/m",
+            "time_limit": 600,
+        },
+        "tasks.store_vectors": {
+            "rate_limit": "6/m",
+            "time_limit": 900,  # 15 minutes max (embedding generation)
+        },
+    },
 )
 
 # Auto-discover tasks
