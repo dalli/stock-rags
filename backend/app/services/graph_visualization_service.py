@@ -313,7 +313,7 @@ class GraphVisualizationService:
                     WHEN connected:Theme THEN connected.name
                     WHEN connected:TargetPrice THEN 'Target: ' + toString(connected.value) + ' ' + COALESCE(connected.currency, 'KRW')
                     WHEN connected:Opinion THEN 'Opinion: ' + COALESCE(connected.rating, 'N/A')
-                    ELSE toString(properties(connected))
+                    ELSE elementId(connected)
                 END as target_label,
                 properties(rel) as rel_properties
             LIMIT $limit
@@ -347,7 +347,7 @@ class GraphVisualizationService:
                     WHEN connected:Company THEN connected.name
                     WHEN connected:Industry THEN connected.name
                     WHEN connected:Theme THEN connected.name
-                    ELSE toString(properties(connected))
+                    ELSE elementId(connected)
                 END as target_label,
                 properties(rel) as rel_properties
             LIMIT $limit
@@ -381,7 +381,7 @@ class GraphVisualizationService:
                     WHEN connected:Company THEN connected.name
                     WHEN connected:Industry THEN connected.name
                     WHEN connected:Theme THEN connected.name
-                    ELSE toString(properties(connected))
+                    ELSE elementId(connected)
                 END as target_label,
                 properties(rel) as rel_properties
             LIMIT $limit
